@@ -1,0 +1,52 @@
+package com.example.nhandienkhuanmat.presentation.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.nhandienkhuanmat.data.model.User
+import com.example.nhandienkhuanmat.data.model.UserRole
+import com.example.nhandienkhuanmat.data.repository.UserRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class MainViewModel @Inject constructor(
+    private val userRepository: UserRepository
+) : ViewModel() {
+
+    private val _currentUser = MutableStateFlow<User?>(null)
+    val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
+
+    private val _isLoggedIn = MutableStateFlow(false)
+    val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
+
+    fun login(email: String, password: String) {
+        viewModelScope.launch {
+            try {
+                val user = userRepository.getUserByEmail(email)
+                if (user != null) {
+                    _currentUser.value = user
+                    _isLoggedIn.value = true
+                }
+            } catch (e: Exception) {
+                // Handle error
+            }
+        }
+    }
+
+    fun logout() {
+        _currentUser.value = null
+        _isLoggedIn.value = false
+    }
+
+    fun isAdmin(): Boolean {
+        return currentUser.value?.role == UserRole.ADMIN
+    }
+
+    fun isUser(): Boolean {
+        return currentUser.value?.role == UserRole.USER
+    }
+} 
