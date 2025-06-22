@@ -9,16 +9,18 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.nhandienkhuanmat.presentation.viewmodel.MainViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
-    viewModel: MainViewModel = hiltViewModel()
+    viewModel: MainViewModel
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
 
@@ -65,8 +67,13 @@ fun LoginScreen(
         Button(
             onClick = {
                 isLoading = true
-                viewModel.login(email, password)
-                isLoading = false
+                scope.launch {
+                    val success = viewModel.login(email, password)
+                    if (success) {
+                        onLoginSuccess()
+                    }
+                    isLoading = false
+                }
             },
             modifier = Modifier
                 .fillMaxWidth()

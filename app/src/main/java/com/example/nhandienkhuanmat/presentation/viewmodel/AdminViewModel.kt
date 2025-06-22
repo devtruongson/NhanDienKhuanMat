@@ -1,14 +1,17 @@
 package com.example.nhandienkhuanmat.presentation.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nhandienkhuanmat.data.model.Lop
+import com.example.nhandienkhuanmat.data.model.LopWithUsers
+import com.example.nhandienkhuanmat.data.model.User
 import com.example.nhandienkhuanmat.data.model.UserWithLops
 import com.example.nhandienkhuanmat.data.repository.LopRepository
 import com.example.nhandienkhuanmat.data.repository.UserRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,56 +24,125 @@ class AdminViewModel @Inject constructor(
     private val _lops = MutableStateFlow<List<Lop>>(emptyList())
     val lops: StateFlow<List<Lop>> = _lops.asStateFlow()
 
+    private val _uiState = MutableStateFlow<AdminUiState>(AdminUiState.Idle)
+    val uiState: StateFlow<AdminUiState> = _uiState.asStateFlow()
+
+    private val _selectedLop = MutableStateFlow<LopWithUsers?>(null)
+    val selectedLop: StateFlow<LopWithUsers?> = _selectedLop.asStateFlow()
+
+    private val _allUsers = MutableStateFlow<List<User>>(emptyList())
+    val allUsers: StateFlow<List<User>> = _allUsers.asStateFlow()
+
     private val _usersWithLops = MutableStateFlow<List<UserWithLops>>(emptyList())
     val usersWithLops: StateFlow<List<UserWithLops>> = _usersWithLops.asStateFlow()
 
     init {
-        fetchAllLops()
-        fetchAllUsersWithLops()
+        loadLops()
+        loadAllUsers()
+        loadUsersWithLops()
     }
 
-    private fun fetchAllLops() {
+    private fun loadLops() {
         viewModelScope.launch {
-            lopRepository.getAllLops()
-                .catch { e ->
-                    Log.e("AdminViewModel", "fetchAllLops failed", e)
-                }
-                .collect { lopsList ->
-                    _lops.value = lopsList
-                }
+            lopRepository.getAllLops().collect {
+                _lops.value = it
+            }
         }
     }
 
-    private fun fetchAllUsersWithLops() {
+    private fun loadAllUsers() {
         viewModelScope.launch {
-            userRepository.getUsersWithLops()
-                .catch { exception ->
-                    Log.e("AdminViewModel", "fetchAllUsersWithLops failed", exception)
-                }
-                .collect { userList ->
-                    _usersWithLops.value = userList
-                }
+            userRepository.getAllUsers().collect {
+                _allUsers.value = it
+            }
         }
     }
 
-    fun createLop(name: String) {
+    private fun loadUsersWithLops() {
         viewModelScope.launch {
-            if (name.isNotBlank()) {
-                val newLop = Lop(name = name)
+            userRepository.getUsersWithLops().collect {
+                _usersWithLops.value = it
+            }
+        }
+    }
+
+    fun loadLopDetails(lopId: Long) {
+        viewModelScope.launch {
+            lopRepository.getLopWithUsers(lopId).collect {
+                _selectedLop.value = it
+            }
+        }
+    }
+
+    fun createLop(name: String, description: String) {
+        viewModelScope.launch {
+            try {
+                _uiState.value = AdminUiState.Loading
+                val newLop = Lop(name = name, description = description)
                 lopRepository.insertLop(newLop)
+                _uiState.value = AdminUiState.Success("Tạo lớp thành công")
+            } catch (e: Exception) {
+                _uiState.value = AdminUiState.Error(e.message ?: "Lỗi không xác định")
+            }
+        }
+    }
+
+    fun updateLop(lop: Lop) {
+        viewModelScope.launch {
+            try {
+                _uiState.value = AdminUiState.Loading
+                lopRepository.updateLop(lop)
+                _uiState.value = AdminUiState.Success("Cập nhật lớp thành công")
+            } catch (e: Exception) {
+                _uiState.value = AdminUiState.Error(e.message ?: "Lỗi không xác định")
+            }
+        }
+    }
+
+    fun deleteLop(lop: Lop) {
+        viewModelScope.launch {
+            try {
+                _uiState.value = AdminUiState.Loading
+                lopRepository.deleteLop(lop)
+                _uiState.value = AdminUiState.Success("Xóa lớp thành công")
+            } catch (e: Exception) {
+                _uiState.value = AdminUiState.Error(e.message ?: "Lỗi không xác định")
             }
         }
     }
 
     fun addUserToLop(userId: Long, lopId: Long) {
         viewModelScope.launch {
-            lopRepository.addUserToLop(userId, lopId)
+            try {
+                lopRepository.addUserToLop(userId, lopId)
+                loadLopDetails(lopId)
+                loadUsersWithLops()
+            } catch (e: Exception) {
+                _uiState.value = AdminUiState.Error(e.message ?: "Lỗi không xác định")
+            }
         }
     }
 
     fun removeUserFromLop(userId: Long, lopId: Long) {
         viewModelScope.launch {
-            lopRepository.removeUserFromLop(userId, lopId)
+            try {
+                lopRepository.removeUserFromLop(userId, lopId)
+                loadLopDetails(lopId)
+                loadUsersWithLops()
+            } catch (e: Exception) {
+                _uiState.value = AdminUiState.Error(e.message ?: "Lỗi không xác định")
+            }
         }
     }
+
+    fun resetUiState() {
+        _uiState.value = AdminUiState.Idle
+    }
+}
+
+sealed class AdminUiState {
+    object Idle : AdminUiState()
+    object Loading : AdminUiState()
+    data class Success(val message: String) : AdminUiState()
+    data class Error(val message: String) : AdminUiState()
 }

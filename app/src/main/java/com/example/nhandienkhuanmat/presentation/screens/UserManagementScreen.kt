@@ -4,6 +4,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,12 +20,12 @@ import com.example.nhandienkhuanmat.presentation.viewmodel.AdminViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserManagementScreen(
-    adminViewModel: AdminViewModel = hiltViewModel(),
+    viewModel: AdminViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit
 ) {
-    val usersWithLops by adminViewModel.usersWithLops.collectAsState()
-    val allLops by adminViewModel.lops.collectAsState()
-    var selectedUser by remember { mutableStateOf<UserWithLops?>(null) }
+    val usersWithLops by viewModel.usersWithLops.collectAsState()
+    val allLops by viewModel.lops.collectAsState()
+    var selectedUserWithLops by remember { mutableStateOf<UserWithLops?>(null) }
 
     Scaffold(
         topBar = {
@@ -31,22 +33,23 @@ fun UserManagementScreen(
                 title = { Text("Quản lý người dùng") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Text("<-") // Back icon
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 }
             )
         }
     ) { padding ->
-        if (selectedUser != null) {
+        
+        selectedUserWithLops?.let { user ->
             AssignLopsDialog(
-                userWithLops = selectedUser!!,
+                userWithLops = user,
                 allLops = allLops,
-                onDismiss = { selectedUser = null },
-                onConfirm = { user, lop, shouldEnroll ->
-                    if (shouldEnroll) {
-                        adminViewModel.addUserToLop(user.id, lop.id)
+                onDismiss = { selectedUserWithLops = null },
+                onConfirmToggle = { lop, isEnrolled ->
+                    if (isEnrolled) {
+                        viewModel.addUserToLop(user.user.id, lop.id)
                     } else {
-                        adminViewModel.removeUserFromLop(user.id, lop.id)
+                        viewModel.removeUserFromLop(user.user.id, lop.id)
                     }
                 }
             )
@@ -57,10 +60,11 @@ fun UserManagementScreen(
             contentPadding = PaddingValues(16.dp)
         ) {
             items(usersWithLops) { userWithLops ->
-                UserItem(userWithLops) {
-                    selectedUser = userWithLops
-                }
-                Divider()
+                UserItem(
+                    userWithLops = userWithLops,
+                    onClick = { selectedUserWithLops = userWithLops }
+                )
+                HorizontalDivider()
             }
         }
     }
@@ -76,11 +80,15 @@ fun UserItem(userWithLops: UserWithLops, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Column {
-            Text(text = userWithLops.user.name, style = MaterialTheme.typography.bodyLarge)
-            Text(text = userWithLops.user.email, style = MaterialTheme.typography.bodySmall)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = userWithLops.user.name, style = MaterialTheme.typography.titleMedium)
+            Text(text = userWithLops.user.email, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = "Lớp: ${userWithLops.lops.joinToString { it.name }.ifEmpty { "Chưa có" }}",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
-        Text(text = "Sửa")
+        Text("Chỉnh sửa")
     }
 }
 
@@ -89,7 +97,7 @@ fun AssignLopsDialog(
     userWithLops: UserWithLops,
     allLops: List<Lop>,
     onDismiss: () -> Unit,
-    onConfirm: (User, Lop, Boolean) -> Unit
+    onConfirmToggle: (Lop, Boolean) -> Unit
 ) {
     val userLopIds = remember(userWithLops) { userWithLops.lops.map { it.id }.toSet() }
 
@@ -99,22 +107,21 @@ fun AssignLopsDialog(
         text = {
             LazyColumn {
                 items(allLops) { lop ->
-                    var isChecked by remember { mutableStateOf(lop.id in userLopIds) }
+                    var isChecked by remember(userLopIds) { mutableStateOf(lop.id in userLopIds) }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                isChecked = !isChecked
-                                onConfirm(userWithLops.user, lop, isChecked)
+                                val shouldEnroll = !isChecked
+                                onConfirmToggle(lop, shouldEnroll)
                             }
                             .padding(vertical = 4.dp)
                     ) {
                         Checkbox(
                             checked = isChecked,
                             onCheckedChange = { newCheckedState ->
-                                isChecked = newCheckedState
-                                onConfirm(userWithLops.user, lop, newCheckedState)
+                                onConfirmToggle(lop, newCheckedState)
                             }
                         )
                         Spacer(modifier = Modifier.width(16.dp))
@@ -125,7 +132,7 @@ fun AssignLopsDialog(
         },
         confirmButton = {
             Button(onClick = onDismiss) {
-                Text("Done")
+                Text("Xong")
             }
         }
     )

@@ -1,15 +1,26 @@
 package com.example.nhandienkhuanmat.presentation.components
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.*
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,159 +29,131 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import java.io.File
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 @Composable
 fun CameraComponent(
+    modifier: Modifier = Modifier,
     onImageCaptured: (Bitmap) -> Unit,
-    onError: (String) -> Unit,
-    modifier: Modifier = Modifier
+    onError: (String) -> Unit
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    
     var hasCameraPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.CAMERA
-            ) == PackageManager.PERMISSION_GRANTED
-        )
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
     }
-
-    val launcher = rememberLauncherForActivityResult(
+    val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-        onResult = { granted ->
-            hasCameraPermission = granted
-        }
+        onResult = { granted -> hasCameraPermission = granted }
     )
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(key1 = true) {
         if (!hasCameraPermission) {
-            launcher.launch(Manifest.permission.CAMERA)
+            permissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
-    if (hasCameraPermission) {
-        CameraPreview(
-            onImageCaptured = onImageCaptured,
-            onError = onError,
-            modifier = modifier
-        )
-    } else {
-        Column(
-            modifier = modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text("Camera permission is required")
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(onClick = { launcher.launch(Manifest.permission.CAMERA) }) {
-                Text("Grant Permission")
+    Box(modifier = modifier) {
+        if (hasCameraPermission) {
+            CameraPreviewContent(
+                onImageCaptured = onImageCaptured,
+                onError = onError
+            )
+        } else {
+            PermissionDeniedContent {
+                permissionLauncher.launch(Manifest.permission.CAMERA)
             }
         }
     }
 }
 
 @Composable
-fun CameraPreview(
+private fun CameraPreviewContent(
     onImageCaptured: (Bitmap) -> Unit,
-    onError: (String) -> Unit,
-    modifier: Modifier = Modifier
+    onError: (String) -> Unit
 ) {
-    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    
+    val context = LocalContext.current
     val cameraExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
-    val imageCapture: ImageCapture = remember {
-        ImageCapture.Builder()
-            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-            .build()
-    }
-    val imageAnalysis = remember {
-        ImageAnalysis.Builder()
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .build()
+    val imageCapture: ImageCapture = remember { ImageCapture.Builder().build() }
+
+    DisposableEffect(Unit) {
+        onDispose { cameraExecutor.shutdown() }
     }
 
-    DisposableEffect(lifecycleOwner) {
-        onDispose {
-            cameraExecutor.shutdown()
-        }
-    }
-
-    Box(modifier = modifier) {
+    Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
             factory = { ctx ->
-                val previewView = PreviewView(ctx).apply {
-                    this.scaleType = PreviewView.ScaleType.FILL_CENTER
+                PreviewView(ctx).apply {
+                    scaleType = PreviewView.ScaleType.FILL_CENTER
                 }
-                
-                val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+            },
+            modifier = Modifier.fillMaxSize(),
+            update = { previewView ->
+                val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
                 cameraProviderFuture.addListener({
-                    val cameraProvider = cameraProviderFuture.get()
-                    val preview = Preview.Builder().build().also {
-                        it.setSurfaceProvider(previewView.surfaceProvider)
-                    }
-
-                    // Set up the analyzer
-                    imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
-                        // We'll process the image here in the future
-                        imageProxy.close()
-                    }
-
                     try {
+                        val cameraProvider = cameraProviderFuture.get()
+                        val preview = Preview.Builder().build().also {
+                            it.setSurfaceProvider(previewView.surfaceProvider)
+                        }
                         cameraProvider.unbindAll()
                         cameraProvider.bindToLifecycle(
                             lifecycleOwner,
                             CameraSelector.DEFAULT_FRONT_CAMERA,
                             preview,
-                            imageCapture,
-                            imageAnalysis // Bind the analyzer
+                            imageCapture
                         )
                     } catch (e: Exception) {
-                        onError("Camera binding failed: ${e.message}")
+                        Log.e("CameraComponent", "Use case binding failed", e)
+                        onError("Failed to bind camera use cases")
                     }
-                }, ContextCompat.getMainExecutor(ctx))
-                
-                previewView
-            },
-            modifier = Modifier.fillMaxSize()
+                }, ContextCompat.getMainExecutor(context))
+            }
         )
 
-        // Capture button
         FloatingActionButton(
             onClick = {
                 takePhoto(
                     imageCapture = imageCapture,
-                    outputDirectory = context.cacheDir,
                     executor = cameraExecutor,
+                    context = context,
                     onImageCaptured = onImageCaptured,
                     onError = onError
                 )
             },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 32.dp)
+                .padding(32.dp)
         ) {
             Text("Chụp")
         }
     }
 }
 
+@Composable
+private fun PermissionDeniedContent(onGrantPermission: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Yêu cầu quyền truy cập Camera")
+        Button(onClick = onGrantPermission) {
+            Text("Cấp quyền")
+        }
+    }
+}
+
 private fun takePhoto(
     imageCapture: ImageCapture,
-    outputDirectory: java.io.File,
     executor: ExecutorService,
+    context: Context,
     onImageCaptured: (Bitmap) -> Unit,
     onError: (String) -> Unit
 ) {
-    val photoFile = java.io.File(
-        outputDirectory,
-        "IMG_${System.currentTimeMillis()}.jpg"
-    )
-
+    val photoFile = File(context.cacheDir, "IMG_${System.currentTimeMillis()}.jpg")
     val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
 
     imageCapture.takePicture(
@@ -178,18 +161,17 @@ private fun takePhoto(
         executor,
         object : ImageCapture.OnImageSavedCallback {
             override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                val savedUri = outputFileResults.savedUri
-                if (savedUri != null) {
-                    // Convert to bitmap
-                    val bitmap = android.graphics.BitmapFactory.decodeFile(photoFile.absolutePath)
+                val bitmap = android.graphics.BitmapFactory.decodeFile(photoFile.absolutePath)
+                if (bitmap != null) {
                     onImageCaptured(bitmap)
                 } else {
-                    onError("Failed to save image")
+                    onError("Failed to decode bitmap.")
                 }
             }
 
             override fun onError(exception: ImageCaptureException) {
-                onError("Image capture failed: ${exception.message}")
+                Log.e("CameraComponent", "Image capture error: ${exception.message}", exception)
+                onError("Image capture failed.")
             }
         }
     )

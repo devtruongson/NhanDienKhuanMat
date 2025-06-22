@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +22,7 @@ import com.example.nhandienkhuanmat.presentation.screens.AttendanceScreen
 import com.example.nhandienkhuanmat.presentation.screens.LoginScreen
 import com.example.nhandienkhuanmat.presentation.screens.RegisterScreen
 import com.example.nhandienkhuanmat.presentation.screens.ClassManagementScreen
+import com.example.nhandienkhuanmat.presentation.screens.ClassDetailScreen
 import com.example.nhandienkhuanmat.presentation.screens.UserManagementScreen
 import com.example.nhandienkhuanmat.presentation.viewmodel.MainViewModel
 import com.example.nhandienkhuanmat.ui.theme.NhanDienKhuanMatTheme
@@ -42,21 +45,8 @@ class MainActivity : ComponentActivity() {
 fun FaceAttendanceNavHost() {
     val navController = rememberNavController()
     val mainViewModel: MainViewModel = hiltViewModel()
-    val isLoggedIn by mainViewModel.isLoggedIn.collectAsState()
     val currentUser by mainViewModel.currentUser.collectAsState()
     val userWithLops by mainViewModel.userWithLops.collectAsState()
-
-    LaunchedEffect(isLoggedIn) {
-        if (isLoggedIn) {
-            navController.navigate("main") {
-                popUpTo("login") { inclusive = true }
-            }
-        } else {
-            navController.navigate("login") {
-                popUpTo(0) { inclusive = true }
-            }
-        }
-    }
 
     NavHost(
         navController = navController,
@@ -71,7 +61,8 @@ fun FaceAttendanceNavHost() {
                 },
                 onNavigateToRegister = {
                     navController.navigate("register")
-                }
+                },
+                viewModel = mainViewModel
             )
         }
         composable("register") {
@@ -112,6 +103,9 @@ fun FaceAttendanceNavHost() {
             ClassManagementScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToClassDetail = { lopId ->
+                    navController.navigate("class_detail/$lopId")
                 }
             )
         }
@@ -134,6 +128,20 @@ fun FaceAttendanceNavHost() {
                 navController.popBackStack()
             }
         }
+        composable(
+            "class_detail/{lopId}",
+            arguments = listOf(navArgument("lopId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val lopId = backStackEntry.arguments?.getLong("lopId")
+            if (lopId != null) {
+                ClassDetailScreen(
+                    lopId = lopId,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            } else {
+                navController.popBackStack()
+            }
+        }
     }
 }
 
@@ -146,7 +154,18 @@ fun MainScreen(
     onNavigateToUserManagement: () -> Unit,
     onNavigateToAttendance: (Long) -> Unit
 ) {
-    if (currentUser?.role == com.example.nhandienkhuanmat.data.model.UserRole.ADMIN) {
+    if (currentUser == null) {
+        // Show a loading screen while user data is being fetched
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
+    if (currentUser.role == com.example.nhandienkhuanmat.data.model.UserRole.ADMIN) {
         AdminDashboard(
             onLogout = onLogout,
             onNavigateToClassManagement = onNavigateToClassManagement,

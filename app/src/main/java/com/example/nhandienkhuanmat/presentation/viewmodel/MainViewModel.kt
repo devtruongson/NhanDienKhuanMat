@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -36,29 +37,27 @@ class MainViewModel @Inject constructor(
                     role = UserRole.USER // Default role for new users
                 )
                 userRepository.insertUser(newUser)
-                // Optionally, you can add some user feedback mechanism here
             } catch (e: Exception) {
-                // Handle error, e.g., email already exists
+                // Handle error
             }
         }
     }
 
-    fun login(email: String, password: String) {
-        viewModelScope.launch {
-            try {
-                val user = userRepository.getUserByEmail(email)
-                if (user != null) {
-                    _currentUser.value = user
-                    _isLoggedIn.value = true
-                    if (user.role == UserRole.USER) {
-                        userRepository.getUserWithLops(user.id).collect {
-                            _userWithLops.value = it
-                        }
-                    }
+    suspend fun login(email: String, password: String): Boolean {
+        return try {
+            val user = userRepository.getUserByEmail(email)
+            if (user != null) {
+                _currentUser.value = user
+                if (user.role == UserRole.USER) {
+                    _userWithLops.value = userRepository.getUserWithLops(user.id).first()
                 }
-            } catch (e: Exception) {
-                // Handle error
+                _isLoggedIn.value = true
+                true
+            } else {
+                false
             }
+        } catch (e: Exception) {
+            false
         }
     }
 
