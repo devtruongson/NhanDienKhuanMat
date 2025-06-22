@@ -98,16 +98,25 @@ private fun CameraPreviewContent(
                         val preview = Preview.Builder().build().also {
                             it.setSurfaceProvider(previewView.surfaceProvider)
                         }
+                        
+                        // Flexible camera selector
+                        val cameraSelector = when {
+                            cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) -> CameraSelector.DEFAULT_FRONT_CAMERA
+                            cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) -> CameraSelector.DEFAULT_BACK_CAMERA
+                            else -> throw IllegalStateException("No available cameras")
+                        }
+
                         cameraProvider.unbindAll()
                         cameraProvider.bindToLifecycle(
                             lifecycleOwner,
-                            CameraSelector.DEFAULT_FRONT_CAMERA,
+                            cameraSelector,
                             preview,
                             imageCapture
                         )
                     } catch (e: Exception) {
+                        val errorMessage = e.message ?: "An unknown error occurred"
                         Log.e("CameraComponent", "Use case binding failed", e)
-                        onError("Failed to bind camera use cases")
+                        onError("Binding failed: $errorMessage")
                     }
                 }, ContextCompat.getMainExecutor(context))
             }
@@ -170,8 +179,9 @@ private fun takePhoto(
             }
 
             override fun onError(exception: ImageCaptureException) {
+                val errorMessage = exception.message ?: "An unknown error occurred"
                 Log.e("CameraComponent", "Image capture error: ${exception.message}", exception)
-                onError("Image capture failed.")
+                onError("Capture failed: $errorMessage")
             }
         }
     )

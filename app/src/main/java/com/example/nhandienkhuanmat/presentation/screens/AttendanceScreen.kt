@@ -60,7 +60,7 @@ fun AttendanceScreen(
                     viewModel.processFaceForAttendance(bitmap, lopId)
                 },
                 onError = { error ->
-                    // Handle camera error
+                    viewModel.postCameraError(error)
                 },
                 modifier = Modifier.fillMaxSize()
             )

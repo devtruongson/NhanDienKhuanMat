@@ -107,6 +107,10 @@ class AttendanceViewModel @Inject constructor(
         }
     }
 
+    fun postCameraError(message: String) {
+        _attendanceState.value = AttendanceState.Error(message)
+    }
+
     fun resetState() {
         _attendanceState.value = AttendanceState.Idle
     }
