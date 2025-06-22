@@ -15,8 +15,8 @@ interface AttendanceDao {
     @Query("SELECT * FROM attendance WHERE date = :date ORDER BY checkInTime DESC")
     fun getAttendanceByDate(date: String): Flow<List<Attendance>>
 
-    @Query("SELECT * FROM attendance WHERE userId = :userId AND date = :date LIMIT 1")
-    suspend fun getAttendanceByUserIdAndDate(userId: Long, date: String): Attendance?
+    @Query("SELECT * FROM attendance WHERE userId = :userId AND date = :date AND lopId = :lopId LIMIT 1")
+    suspend fun getAttendanceByUserIdAndDateAndLopId(userId: Long, date: String, lopId: Long): Attendance?
 
     @Query("SELECT * FROM attendance WHERE userId = :userId AND checkOutTime IS NULL ORDER BY checkInTime DESC LIMIT 1")
     suspend fun getCurrentSession(userId: Long): Attendance?

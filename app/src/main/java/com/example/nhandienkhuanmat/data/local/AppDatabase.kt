@@ -7,17 +7,20 @@ import androidx.room.TypeConverters
 import android.content.Context
 import com.example.nhandienkhuanmat.data.model.Attendance
 import com.example.nhandienkhuanmat.data.model.User
+import com.example.nhandienkhuanmat.data.model.Lop
+import com.example.nhandienkhuanmat.data.model.UserLopCrossRef
 import com.example.nhandienkhuanmat.data.local.converter.Converters
 
 @Database(
-    entities = [User::class, Attendance::class],
-    version = 1,
+    entities = [User::class, Attendance::class, Lop::class, UserLopCrossRef::class],
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
     abstract fun attendanceDao(): AttendanceDao
+    abstract fun lopDao(): LopDao
 
     companion object {
         @Volatile
@@ -29,7 +32,8 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "face_attendance_database"
-                ).build()
+                ).fallbackToDestructiveMigration()
+                 .build()
                 INSTANCE = instance
                 instance
             }

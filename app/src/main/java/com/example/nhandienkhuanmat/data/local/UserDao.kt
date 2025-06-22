@@ -2,12 +2,21 @@ package com.example.nhandienkhuanmat.data.local
 
 import androidx.room.*
 import com.example.nhandienkhuanmat.data.model.User
+import com.example.nhandienkhuanmat.data.model.UserWithLops
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface UserDao {
     @Query("SELECT * FROM users ORDER BY name ASC")
     fun getAllUsers(): Flow<List<User>>
+
+    @Transaction
+    @Query("SELECT * FROM users")
+    fun getUsersWithLops(): Flow<List<UserWithLops>>
+
+    @Transaction
+    @Query("SELECT * FROM users WHERE id = :userId")
+    fun getUserWithLops(userId: Long): Flow<UserWithLops?>
 
     @Query("SELECT * FROM users WHERE role = :role ORDER BY name ASC")
     fun getUsersByRole(role: String): Flow<List<User>>

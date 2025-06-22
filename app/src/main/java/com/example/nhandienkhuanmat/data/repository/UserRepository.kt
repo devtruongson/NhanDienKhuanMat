@@ -3,6 +3,7 @@ package com.example.nhandienkhuanmat.data.repository
 import com.example.nhandienkhuanmat.data.local.UserDao
 import com.example.nhandienkhuanmat.data.model.User
 import com.example.nhandienkhuanmat.data.model.UserRole
+import com.example.nhandienkhuanmat.data.model.UserWithLops
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -12,6 +13,10 @@ class UserRepository @Inject constructor(
     private val userDao: UserDao
 ) {
     fun getAllUsers(): Flow<List<User>> = userDao.getAllUsers()
+
+    fun getUsersWithLops(): Flow<List<UserWithLops>> = userDao.getUsersWithLops()
+
+    fun getUserWithLops(userId: Long): Flow<UserWithLops?> = userDao.getUserWithLops(userId)
 
     fun getUsersByRole(role: UserRole): Flow<List<User>> = userDao.getUsersByRole(role.name)
 

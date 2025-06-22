@@ -7,14 +7,20 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.example.nhandienkhuanmat.presentation.screens.AttendanceScreen
 import com.example.nhandienkhuanmat.presentation.screens.LoginScreen
+import com.example.nhandienkhuanmat.presentation.screens.RegisterScreen
+import com.example.nhandienkhuanmat.presentation.screens.ClassManagementScreen
+import com.example.nhandienkhuanmat.presentation.screens.UserManagementScreen
 import com.example.nhandienkhuanmat.presentation.viewmodel.MainViewModel
 import com.example.nhandienkhuanmat.ui.theme.NhanDienKhuanMatTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -26,18 +32,19 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             NhanDienKhuanMatTheme {
-                FaceAttendanceApp()
+                FaceAttendanceNavHost()
             }
         }
     }
 }
 
 @Composable
-fun FaceAttendanceApp() {
+fun FaceAttendanceNavHost() {
     val navController = rememberNavController()
     val mainViewModel: MainViewModel = hiltViewModel()
     val isLoggedIn by mainViewModel.isLoggedIn.collectAsState()
     val currentUser by mainViewModel.currentUser.collectAsState()
+    val userWithLops by mainViewModel.userWithLops.collectAsState()
 
     LaunchedEffect(isLoggedIn) {
         if (isLoggedIn) {
@@ -61,6 +68,21 @@ fun FaceAttendanceApp() {
                     navController.navigate("main") {
                         popUpTo("login") { inclusive = true }
                     }
+                },
+                onNavigateToRegister = {
+                    navController.navigate("register")
+                }
+            )
+        }
+        composable("register") {
+            RegisterScreen(
+                onRegister = { name, email ->
+                    mainViewModel.register(name, email)
+                    // Navigate back to login after registration
+                    navController.popBackStack()
+                },
+                onNavigateToLogin = {
+                    navController.popBackStack()
                 }
             )
         }
@@ -68,22 +90,113 @@ fun FaceAttendanceApp() {
         composable("main") {
             MainScreen(
                 currentUser = currentUser,
+                userWithLops = userWithLops,
                 onLogout = {
                     mainViewModel.logout()
                     navController.navigate("login") {
                         popUpTo(0) { inclusive = true }
                     }
+                },
+                onNavigateToClassManagement = {
+                    navController.navigate("class_management")
+                },
+                onNavigateToUserManagement = {
+                    navController.navigate("user_management")
+                },
+                onNavigateToAttendance = { lopId ->
+                    navController.navigate("attendance/$lopId")
                 }
             )
+        }
+        composable("class_management") {
+            ClassManagementScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        composable("user_management") {
+            UserManagementScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        composable(
+            "attendance/{lopId}",
+            arguments = listOf(navArgument("lopId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val lopId = backStackEntry.arguments?.getLong("lopId")
+            if (lopId != null) {
+                AttendanceScreen(lopId = lopId)
+            } else {
+                // Handle error, maybe navigate back
+                navController.popBackStack()
+            }
+        }
+    }
+}
+
+@Composable
+fun MainScreen(
+    currentUser: com.example.nhandienkhuanmat.data.model.User?,
+    userWithLops: com.example.nhandienkhuanmat.data.model.UserWithLops?,
+    onLogout: () -> Unit,
+    onNavigateToClassManagement: () -> Unit,
+    onNavigateToUserManagement: () -> Unit,
+    onNavigateToAttendance: (Long) -> Unit
+) {
+    if (currentUser?.role == com.example.nhandienkhuanmat.data.model.UserRole.ADMIN) {
+        AdminDashboard(
+            onLogout = onLogout,
+            onNavigateToClassManagement = onNavigateToClassManagement,
+            onNavigateToUserManagement = onNavigateToUserManagement
+        )
+    } else {
+        UserDashboard(
+            currentUser = currentUser,
+            userWithLops = userWithLops,
+            onLogout = onLogout,
+            onNavigateToAttendance = onNavigateToAttendance
+        )
+    }
+}
+
+@Composable
+fun AdminDashboard(
+    onLogout: () -> Unit,
+    onNavigateToClassManagement: () -> Unit,
+    onNavigateToUserManagement: () -> Unit
+) {
+    // Placeholder for the Admin Dashboard
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Admin Dashboard", style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = onNavigateToClassManagement) {
+            Text("Quản lý lớp học")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(onClick = onNavigateToUserManagement) {
+            Text("Quản lý người dùng")
+        }
+        Spacer(modifier = Modifier.height(32.dp))
+        Button(onClick = onLogout) {
+            Text("Đăng xuất")
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(
+fun UserDashboard(
     currentUser: com.example.nhandienkhuanmat.data.model.User?,
-    onLogout: () -> Unit
+    userWithLops: com.example.nhandienkhuanmat.data.model.UserWithLops?,
+    onLogout: () -> Unit,
+    onNavigateToAttendance: (Long) -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Điểm danh", "Thống kê", "Cài đặt")
@@ -121,9 +234,23 @@ fun MainScreen(
     ) { innerPadding ->
         when (selectedTab) {
             0 -> {
-                AttendanceScreen(
-                    modifier = Modifier.padding(innerPadding)
-                )
+                if (userWithLops != null && userWithLops.lops.isNotEmpty()) {
+                    ClassSelectionScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        classes = userWithLops.lops,
+                        onClassSelected = { lopId ->
+                            onNavigateToAttendance(lopId)
+                        }
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(innerPadding),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("Bạn chưa được gán vào lớp học nào.")
+                    }
+                }
             }
             1 -> {
                 // Statistics screen (placeholder)
@@ -155,6 +282,35 @@ fun MainScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("Tính năng đang phát triển...")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ClassSelectionScreen(
+    modifier: Modifier = Modifier,
+    classes: List<com.example.nhandienkhuanmat.data.model.Lop>,
+    onClassSelected: (Long) -> Unit
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Chọn lớp học để điểm danh", style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.height(16.dp))
+        LazyColumn(modifier = Modifier.fillMaxWidth()) {
+            items(classes) { lop ->
+                Button(
+                    onClick = { onClassSelected(lop.id) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    Text(lop.name)
                 }
             }
         }

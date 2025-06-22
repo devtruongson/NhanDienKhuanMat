@@ -38,7 +38,6 @@ android {
     }
     buildFeatures {
         compose = true
-        viewBinding = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.11"
@@ -46,11 +45,6 @@ android {
     aaptOptions {
         noCompress("tflite")
     }
-    dependenciesInfo {
-        includeInApk = false
-        includeInBundle = true
-    }
-    buildToolsVersion = "35.0.0"
 }
 
 dependencies {
@@ -58,16 +52,14 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
-    
+    implementation("com.google.mlkit:face-detection:16.1.5")
+
     // Compose dependencies
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    
-    // ML Kit dependencies
-    implementation(libs.mlkit.face.detection)
     
     // TensorFlow Lite
     implementation(libs.tensorflow.lite.support)

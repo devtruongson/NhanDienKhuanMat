@@ -31,14 +31,14 @@ class AttendanceViewModel @Inject constructor(
     private val _attendanceList = MutableStateFlow<List<Attendance>>(emptyList())
     val attendanceList: StateFlow<List<Attendance>> = _attendanceList.asStateFlow()
 
-    fun processFaceForAttendance(bitmap: Bitmap) {
+    fun processFaceForAttendance(bitmap: Bitmap, lopId: Long) {
         _attendanceState.value = AttendanceState.Processing
         viewModelScope.launch {
             try {
                 when (val result = faceRecognitionUseCase.detectAndRecognizeFace(bitmap)) {
                     is FaceRecognitionResult.FaceRecognized -> {
                         _attendanceState.value = AttendanceState.FaceRecognized(result.user, result.distance)
-                        processAttendanceForUser(result.user.id)
+                        processAttendanceForUser(result.user.id, lopId)
                     }
                     is FaceRecognitionResult.NoFaceDetected -> {
                         _attendanceState.value = AttendanceState.Error("Không phát hiện khuôn mặt")
@@ -56,13 +56,13 @@ class AttendanceViewModel @Inject constructor(
         }
     }
 
-    private fun processAttendanceForUser(userId: Long) {
+    private fun processAttendanceForUser(userId: Long, lopId: Long) {
         viewModelScope.launch {
             try {
                 val currentSession = attendanceUseCase.getCurrentSession(userId)
                 if (currentSession == null) {
                     // Check in
-                    when (val result = attendanceUseCase.checkIn(userId)) {
+                    when (val result = attendanceUseCase.checkIn(userId, lopId)) {
                         is AttendanceResult.CheckInSuccess -> {
                             _currentSession.value = result.attendance
                             _attendanceState.value = AttendanceState.CheckInSuccess(result.attendance)

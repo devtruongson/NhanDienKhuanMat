@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.nhandienkhuanmat.data.local.AppDatabase
 import com.example.nhandienkhuanmat.data.local.AttendanceDao
 import com.example.nhandienkhuanmat.data.local.UserDao
+import com.example.nhandienkhuanmat.data.local.LopDao
 import com.example.nhandienkhuanmat.domain.service.FaceRecognitionService
 import dagger.Module
 import dagger.Provides
@@ -36,7 +37,13 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideFaceRecognitionService(): FaceRecognitionService {
-        return FaceRecognitionService()
+    fun provideLopDao(database: AppDatabase): LopDao {
+        return database.lopDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideFaceRecognitionService( @ApplicationContext context: Context): FaceRecognitionService {
+        return FaceRecognitionService(context)
     }
 } 

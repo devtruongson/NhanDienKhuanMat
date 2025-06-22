@@ -13,6 +13,7 @@ import com.example.nhandienkhuanmat.presentation.viewmodel.MainViewModel
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
+    onNavigateToRegister: () -> Unit,
     viewModel: MainViewModel = hiltViewModel()
 ) {
     var email by remember { mutableStateOf("") }
@@ -80,6 +81,12 @@ fun LoginScreen(
             } else {
                 Text("Đăng nhập")
             }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        TextButton(onClick = onNavigateToRegister) {
+            Text("Don't have an account? Register")
         }
 
         Spacer(modifier = Modifier.height(16.dp))

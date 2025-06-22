@@ -88,6 +88,11 @@ fun CameraPreview(
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
             .build()
     }
+    val imageAnalysis = remember {
+        ImageAnalysis.Builder()
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .build()
+    }
 
     DisposableEffect(lifecycleOwner) {
         onDispose {
@@ -109,13 +114,20 @@ fun CameraPreview(
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
 
+                    // Set up the analyzer
+                    imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
+                        // We'll process the image here in the future
+                        imageProxy.close()
+                    }
+
                     try {
                         cameraProvider.unbindAll()
                         cameraProvider.bindToLifecycle(
                             lifecycleOwner,
                             CameraSelector.DEFAULT_FRONT_CAMERA,
                             preview,
-                            imageCapture
+                            imageCapture,
+                            imageAnalysis // Bind the analyzer
                         )
                     } catch (e: Exception) {
                         onError("Camera binding failed: ${e.message}")

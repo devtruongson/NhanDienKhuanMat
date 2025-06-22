@@ -8,6 +8,7 @@ data class Attendance(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val userId: Long,
+    val lopId: Long, // Foreign key for Lop
     val checkInTime: Long,
     val checkOutTime: Long? = null,
     val date: String, // Format: yyyy-MM-dd

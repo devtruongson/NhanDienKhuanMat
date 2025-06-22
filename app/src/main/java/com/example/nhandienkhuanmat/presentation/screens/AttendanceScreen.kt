@@ -14,6 +14,7 @@ import com.example.nhandienkhuanmat.presentation.viewmodel.AttendanceState
 
 @Composable
 fun AttendanceScreen(
+    lopId: Long,
     modifier: Modifier = Modifier,
     viewModel: AttendanceViewModel = hiltViewModel()
 ) {
@@ -56,7 +57,7 @@ fun AttendanceScreen(
         ) {
             CameraComponent(
                 onImageCaptured = { bitmap: Bitmap ->
-                    viewModel.processFaceForAttendance(bitmap)
+                    viewModel.processFaceForAttendance(bitmap, lopId)
                 },
                 onError = { error ->
                     // Handle camera error

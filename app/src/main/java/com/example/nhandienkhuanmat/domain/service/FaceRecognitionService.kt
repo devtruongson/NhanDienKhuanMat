@@ -23,6 +23,7 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.pow
 import kotlin.math.sqrt
+import kotlin.reflect.KProperty
 
 @Singleton
 class FaceRecognitionService @Inject constructor(
@@ -89,4 +90,4 @@ class FaceRecognitionService @Inject constructor(
 
         return Bitmap.createBitmap(bitmap, left, top, width, height)
     }
-} 
+}

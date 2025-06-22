@@ -16,8 +16,8 @@ class AttendanceRepository @Inject constructor(
 
     fun getAttendanceByDate(date: String): Flow<List<Attendance>> = attendanceDao.getAttendanceByDate(date)
 
-    suspend fun getAttendanceByUserIdAndDate(userId: Long, date: String): Attendance? = 
-        attendanceDao.getAttendanceByUserIdAndDate(userId, date)
+    suspend fun getAttendanceByUserIdAndDateAndLopId(userId: Long, date: String, lopId: Long): Attendance? =
+        attendanceDao.getAttendanceByUserIdAndDateAndLopId(userId, date, lopId)
 
     suspend fun getCurrentSession(userId: Long): Attendance? = attendanceDao.getCurrentSession(userId)
 

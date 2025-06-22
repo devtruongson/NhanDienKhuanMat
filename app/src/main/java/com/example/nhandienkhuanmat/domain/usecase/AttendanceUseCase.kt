@@ -20,12 +20,12 @@ class AttendanceUseCase @Inject constructor(
 
     fun getAttendanceByDate(date: String): Flow<List<Attendance>> = attendanceRepository.getAttendanceByDate(date)
 
-    suspend fun checkIn(userId: Long): AttendanceResult {
+    suspend fun checkIn(userId: Long, lopId: Long): AttendanceResult {
         val today = getCurrentDate()
         val currentTime = System.currentTimeMillis()
         
         // Check if already checked in today
-        val existingAttendance = attendanceRepository.getAttendanceByUserIdAndDate(userId, today)
+        val existingAttendance = attendanceRepository.getAttendanceByUserIdAndDateAndLopId(userId, today, lopId)
         if (existingAttendance != null && existingAttendance.checkOutTime == null) {
             return AttendanceResult.AlreadyCheckedIn
         }
@@ -40,6 +40,7 @@ class AttendanceUseCase @Inject constructor(
 
         val attendance = Attendance(
             userId = userId,
+            lopId = lopId,
             checkInTime = currentTime,
             date = today,
             status = status
