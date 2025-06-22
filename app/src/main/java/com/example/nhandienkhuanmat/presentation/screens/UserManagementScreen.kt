@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import com.example.nhandienkhuanmat.data.model.Lop
 import com.example.nhandienkhuanmat.data.model.User
 import com.example.nhandienkhuanmat.data.model.UserWithLops
@@ -20,8 +21,10 @@ import com.example.nhandienkhuanmat.presentation.viewmodel.AdminViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserManagementScreen(
-    viewModel: AdminViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit
+    navController: NavController,
+    onNavigateBack: () -> Unit,
+    onNavigateToFaceRegistration: (Long) -> Unit,
+    viewModel: AdminViewModel = hiltViewModel()
 ) {
     val usersWithLops by viewModel.usersWithLops.collectAsState()
     val allLops by viewModel.lops.collectAsState()
@@ -62,7 +65,10 @@ fun UserManagementScreen(
             items(usersWithLops) { userWithLops ->
                 UserItem(
                     userWithLops = userWithLops,
-                    onClick = { selectedUserWithLops = userWithLops }
+                    onAssignClick = { selectedUserWithLops = userWithLops },
+                    onRegisterFaceClick = {
+                        onNavigateToFaceRegistration(userWithLops.user.id)
+                    }
                 )
                 HorizontalDivider()
             }
@@ -71,12 +77,15 @@ fun UserManagementScreen(
 }
 
 @Composable
-fun UserItem(userWithLops: UserWithLops, onClick: () -> Unit) {
+fun UserItem(
+    userWithLops: UserWithLops,
+    onAssignClick: () -> Unit,
+    onRegisterFaceClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 16.dp),
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -87,8 +96,18 @@ fun UserItem(userWithLops: UserWithLops, onClick: () -> Unit) {
                 text = "Lớp: ${userWithLops.lops.joinToString { it.name }.ifEmpty { "Chưa có" }}",
                 style = MaterialTheme.typography.bodySmall
             )
+            val faceStatus = if (userWithLops.user.faceEmbedding != null) "Đã đăng ký" else "Chưa đăng ký"
+            Text(text = "Khuôn mặt: $faceStatus", style = MaterialTheme.typography.bodySmall)
         }
-        Text("Chỉnh sửa")
+        Row {
+            Button(onClick = onAssignClick) {
+                Text("Gán lớp")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(onClick = onRegisterFaceClick) {
+                Text("ĐK Mặt")
+            }
+        }
     }
 }
 

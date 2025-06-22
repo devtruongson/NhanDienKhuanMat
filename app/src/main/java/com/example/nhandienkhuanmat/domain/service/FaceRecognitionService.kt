@@ -45,7 +45,7 @@ class FaceRecognitionService @Inject constructor(
     }
 
     private val imageProcessor = ImageProcessor.Builder()
-        .add(ResizeOp(112, 112, ResizeOp.ResizeMethod.BILINEAR))
+        .add(ResizeOp(160, 160, ResizeOp.ResizeMethod.BILINEAR))
         .add(NormalizeOp(0f, 255f))
         .build()
 
@@ -67,7 +67,7 @@ class FaceRecognitionService @Inject constructor(
         val processedImage = imageProcessor.process(tensorImage)
         val buffer = processedImage.buffer
         
-        val outputEmbeddings = Array(1) { FloatArray(128) }
+        val outputEmbeddings = Array(1) { FloatArray(512) }
         interpreter.run(buffer, outputEmbeddings)
         
         return outputEmbeddings[0]

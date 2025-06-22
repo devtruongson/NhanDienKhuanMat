@@ -9,10 +9,9 @@ data class User(
     val id: Long = 0,
     val name: String,
     val email: String,
+    val password: String,
     val role: UserRole,
-    val faceEmbeddings: String? = null, // JSON string of face embeddings
-    val createdAt: Long = System.currentTimeMillis(),
-    val isActive: Boolean = true
+    var faceEmbedding: FloatArray? = null
 )
 
 enum class UserRole {

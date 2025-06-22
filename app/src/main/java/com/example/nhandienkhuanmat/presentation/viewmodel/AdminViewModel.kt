@@ -6,8 +6,11 @@ import com.example.nhandienkhuanmat.data.model.Lop
 import com.example.nhandienkhuanmat.data.model.LopWithUsers
 import com.example.nhandienkhuanmat.data.model.User
 import com.example.nhandienkhuanmat.data.model.UserWithLops
+import com.example.nhandienkhuanmat.data.model.UserLopCrossRef
+import com.example.nhandienkhuanmat.data.model.AttendanceWithDetails
 import com.example.nhandienkhuanmat.data.repository.LopRepository
 import com.example.nhandienkhuanmat.data.repository.UserRepository
+import com.example.nhandienkhuanmat.data.repository.AttendanceRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +21,8 @@ import javax.inject.Inject
 @HiltViewModel
 class AdminViewModel @Inject constructor(
     private val lopRepository: LopRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val attendanceRepository: AttendanceRepository
 ) : ViewModel() {
 
     private val _lops = MutableStateFlow<List<Lop>>(emptyList())
@@ -35,6 +39,9 @@ class AdminViewModel @Inject constructor(
 
     private val _usersWithLops = MutableStateFlow<List<UserWithLops>>(emptyList())
     val usersWithLops: StateFlow<List<UserWithLops>> = _usersWithLops.asStateFlow()
+
+    private val _attendanceDetails = MutableStateFlow<List<AttendanceWithDetails>>(emptyList())
+    val attendanceDetails: StateFlow<List<AttendanceWithDetails>> = _attendanceDetails.asStateFlow()
 
     init {
         loadLops()
@@ -70,6 +77,14 @@ class AdminViewModel @Inject constructor(
         viewModelScope.launch {
             lopRepository.getLopWithUsers(lopId).collect {
                 _selectedLop.value = it
+            }
+        }
+    }
+
+    fun loadAttendanceDetails(lopId: Long) {
+        viewModelScope.launch {
+            attendanceRepository.getAttendanceDetailsForLop(lopId).collect {
+                _attendanceDetails.value = it
             }
         }
     }

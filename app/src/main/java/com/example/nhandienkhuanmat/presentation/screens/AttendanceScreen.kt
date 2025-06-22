@@ -9,179 +9,82 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.nhandienkhuanmat.presentation.components.CameraComponent
-import com.example.nhandienkhuanmat.presentation.viewmodel.AttendanceViewModel
 import com.example.nhandienkhuanmat.presentation.viewmodel.AttendanceState
+import com.example.nhandienkhuanmat.presentation.viewmodel.AttendanceViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun AttendanceScreen(
     lopId: Long,
     modifier: Modifier = Modifier,
+    onAttendanceSuccess: () -> Unit,
     viewModel: AttendanceViewModel = hiltViewModel()
 ) {
     val attendanceState by viewModel.attendanceState.collectAsState()
-    val currentSession by viewModel.currentSession.collectAsState()
 
-    Column(
-        modifier = modifier.fillMaxSize()
-    ) {
-        // Header
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text(
-                    text = "Điểm danh khuôn mặt",
-                    style = MaterialTheme.typography.headlineSmall
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                currentSession?.let { session ->
-                    Text(
-                        text = "Phiên hiện tại: ${if (session.checkOutTime == null) "Đang làm việc" else "Đã kết thúc"}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+    Box(modifier = modifier.fillMaxSize()) {
+        CameraComponent(
+            onImageCaptured = { bitmap: Bitmap ->
+                viewModel.processAttendance(bitmap, lopId)
+            },
+            onError = { error ->
+                // The ViewModel can also be made to handle this
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Status overlay
+        when (val state = attendanceState) {
+            is AttendanceState.Loading -> {
+                Box(modifier = Modifier.fillMaxSize().align(Alignment.Center)) {
+                    CircularProgressIndicator()
                 }
             }
-        }
-
-        // Camera and Status
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        ) {
-            CameraComponent(
-                onImageCaptured = { bitmap: Bitmap ->
-                    viewModel.processFaceForAttendance(bitmap, lopId)
-                },
-                onError = { error ->
-                    viewModel.postCameraError(error)
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-
-            // Status overlay
-            val state = attendanceState
-            if (state !is AttendanceState.Idle) {
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(16.dp)
-                ) {
-                    when (state) {
-                        is AttendanceState.Processing -> {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Đang xử lý...")
-                            }
-                        }
-                        
-                        is AttendanceState.FaceRecognized -> {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "Xin chào, ${state.user.name}!",
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                                Text(
-                                    text = "Khoảng cách: ${String.format("%.4f", state.distance)} (Càng thấp càng tốt)",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-                        
-                        is AttendanceState.CheckInSuccess -> {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "Điểm danh thành công!",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    text = "Thời gian: ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(state.attendance.checkInTime))}",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-                        
-                        is AttendanceState.CheckOutSuccess -> {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "Đăng xuất thành công!",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                state.attendance.checkOutTime?.let { checkOutTime ->
-                                    Text(
-                                        text = "Thời gian: ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(checkOutTime))}",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
-                            }
-                        }
-                        
-                        is AttendanceState.Error -> {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "Lỗi",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                                Text(
-                                    text = state.message,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-                        else -> { /* Idle state */ }
-                    }
-                }
+            is AttendanceState.Success -> {
+                StatusCard(
+                    message = state.message,
+                    isError = false
+                )
             }
-        }
-
-        // Instructions
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text(
-                    text = "Hướng dẫn:",
-                    style = MaterialTheme.typography.titleMedium
+            is AttendanceState.Error -> {
+                StatusCard(
+                    message = state.message,
+                    isError = true
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "• Đặt khuôn mặt vào khung hình",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    text = "• Nhấn nút 'Chụp' để điểm danh",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    text = "• Đảm bảo ánh sáng đủ sáng",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+            }
+            is AttendanceState.Idle -> {
+                // Do nothing
             }
         }
     }
 
     // Auto-reset state after delay
     LaunchedEffect(attendanceState) {
-        if (attendanceState !is AttendanceState.Idle && attendanceState !is AttendanceState.Processing) {
-            kotlinx.coroutines.delay(3000)
+        if (attendanceState is AttendanceState.Success) {
+            delay(2000) // Show success message for 2 seconds
+            onAttendanceSuccess()
+            viewModel.resetState()
+        } else if (attendanceState is AttendanceState.Error) {
+            delay(3000) // Show error for 3 seconds
             viewModel.resetState()
         }
     }
-} 
+}
+
+@Composable
+fun BoxScope.StatusCard(message: String, isError: Boolean) {
+    Card(
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .padding(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isError) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(16.dp),
+            color = if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    }
+}

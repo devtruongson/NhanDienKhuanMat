@@ -39,8 +39,7 @@ class FaceRecognitionUseCase @Inject constructor(
                 var bestMatch: Pair<User, Float>? = null
 
                 for (user in users) {
-                    user.faceEmbeddings?.let { storedEmbeddingsString ->
-                        val storedEmbeddings = parseEmbeddings(storedEmbeddingsString)
+                    user.faceEmbedding?.let { storedEmbeddings ->
                         val distance = faceRecognitionService.compareEmbeddings(embeddings, storedEmbeddings)
 
                         if (distance < SIMILARITY_THRESHOLD) {
@@ -79,8 +78,8 @@ class FaceRecognitionUseCase @Inject constructor(
                 val embeddings = faceRecognitionService.extractFaceEmbeddings(faceBitmap)
 
                 val user = userRepository.getUserById(userId) ?: return@withContext false
-                val updatedUser = user.copy(faceEmbeddings = embeddingsToString(embeddings))
-                userRepository.updateUser(updatedUser)
+                user.faceEmbedding = embeddings
+                userRepository.updateUser(user)
 
                 true
             } catch (e: Exception) {

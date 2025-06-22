@@ -23,6 +23,7 @@ class DataInitializer @Inject constructor(
                 val adminUser = User(
                     name = "Admin User",
                     email = "admin@example.com",
+                    password = "password",
                     role = UserRole.ADMIN
                 )
                 userRepository.insertUser(adminUser)
@@ -31,6 +32,7 @@ class DataInitializer @Inject constructor(
                 val regularUser = User(
                     name = "Regular User",
                     email = "user@example.com",
+                    password = "password",
                     role = UserRole.USER
                 )
                 userRepository.insertUser(regularUser)

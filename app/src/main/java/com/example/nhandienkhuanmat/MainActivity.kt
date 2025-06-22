@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -24,6 +25,10 @@ import com.example.nhandienkhuanmat.presentation.screens.RegisterScreen
 import com.example.nhandienkhuanmat.presentation.screens.ClassManagementScreen
 import com.example.nhandienkhuanmat.presentation.screens.ClassDetailScreen
 import com.example.nhandienkhuanmat.presentation.screens.UserManagementScreen
+import com.example.nhandienkhuanmat.presentation.screens.FaceRegistrationScreen
+import com.example.nhandienkhuanmat.presentation.screens.AdminStatisticsDashboard
+import com.example.nhandienkhuanmat.presentation.screens.ClassStatisticsScreen
+import com.example.nhandienkhuanmat.presentation.screens.UserStatisticsScreen
 import com.example.nhandienkhuanmat.presentation.viewmodel.MainViewModel
 import com.example.nhandienkhuanmat.ui.theme.NhanDienKhuanMatTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -67,8 +72,8 @@ fun FaceAttendanceNavHost() {
         }
         composable("register") {
             RegisterScreen(
-                onRegister = { name, email ->
-                    mainViewModel.register(name, email)
+                onRegister = { name, email, password ->
+                    mainViewModel.register(name, email, password)
                     // Navigate back to login after registration
                     navController.popBackStack()
                 },
@@ -78,43 +83,39 @@ fun FaceAttendanceNavHost() {
             )
         }
 
+        // Main App Navigation
         composable("main") {
-            MainScreen(
-                currentUser = currentUser,
-                userWithLops = userWithLops,
-                onLogout = {
-                    mainViewModel.logout()
-                    navController.navigate("login") {
-                        popUpTo(0) { inclusive = true }
-                    }
-                },
-                onNavigateToClassManagement = {
-                    navController.navigate("class_management")
-                },
-                onNavigateToUserManagement = {
-                    navController.navigate("user_management")
-                },
-                onNavigateToAttendance = { lopId ->
-                    navController.navigate("attendance/$lopId")
-                }
-            )
+            MainScreen(navController = navController, mainViewModel = mainViewModel)
         }
         composable("class_management") {
             ClassManagementScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                onNavigateToClassDetail = { lopId ->
-                    navController.navigate("class_detail/$lopId")
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToClassDetail = { classId ->
+                    navController.navigate("class_detail/$classId")
                 }
             )
         }
         composable("user_management") {
             UserManagementScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
+                navController = navController,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToFaceRegistration = { userId ->
+                    navController.navigate("face_registration/$userId")
                 }
             )
+        }
+        composable(
+            "face_registration/{userId}",
+            arguments = listOf(navArgument("userId") { type = NavType.LongType })
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getLong("userId")
+            if (userId != null) {
+                FaceRegistrationScreen(
+                    userId = userId,
+                    navController = navController,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
         }
         composable(
             "attendance/{lopId}",
@@ -122,7 +123,10 @@ fun FaceAttendanceNavHost() {
         ) { backStackEntry ->
             val lopId = backStackEntry.arguments?.getLong("lopId")
             if (lopId != null) {
-                AttendanceScreen(lopId = lopId)
+                AttendanceScreen(
+                    lopId = lopId,
+                    onAttendanceSuccess = { navController.popBackStack() }
+                )
             } else {
                 // Handle error, maybe navigate back
                 navController.popBackStack()
@@ -142,41 +146,71 @@ fun FaceAttendanceNavHost() {
                 navController.popBackStack()
             }
         }
+        composable("admin_statistics_dashboard") {
+            AdminStatisticsDashboard(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToClassStatistics = { lopId, lopName ->
+                    navController.navigate("class_statistics/$lopId/$lopName")
+                }
+            )
+        }
+        composable(
+            "class_statistics/{lopId}/{lopName}",
+            arguments = listOf(
+                navArgument("lopId") { type = NavType.LongType },
+                navArgument("lopName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val lopId = backStackEntry.arguments?.getLong("lopId")
+            val lopName = backStackEntry.arguments?.getString("lopName")
+            if (lopId != null && lopName != null) {
+                ClassStatisticsScreen(
+                    lopId = lopId,
+                    lopName = lopName,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+        }
     }
 }
 
 @Composable
 fun MainScreen(
-    currentUser: com.example.nhandienkhuanmat.data.model.User?,
-    userWithLops: com.example.nhandienkhuanmat.data.model.UserWithLops?,
-    onLogout: () -> Unit,
-    onNavigateToClassManagement: () -> Unit,
-    onNavigateToUserManagement: () -> Unit,
-    onNavigateToAttendance: (Long) -> Unit
+    navController: NavController,
+    mainViewModel: MainViewModel
 ) {
+    val currentUser by mainViewModel.currentUser.collectAsState()
+    val userWithLops by mainViewModel.userWithLops.collectAsState()
+
     if (currentUser == null) {
-        // Show a loading screen while user data is being fetched
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
         return
     }
 
-    if (currentUser.role == com.example.nhandienkhuanmat.data.model.UserRole.ADMIN) {
+    if (currentUser!!.role == com.example.nhandienkhuanmat.data.model.UserRole.ADMIN) {
         AdminDashboard(
-            onLogout = onLogout,
-            onNavigateToClassManagement = onNavigateToClassManagement,
-            onNavigateToUserManagement = onNavigateToUserManagement
+            onLogout = {
+                mainViewModel.logout()
+                navController.navigate("login") { popUpTo(0) { inclusive = true } }
+            },
+            onNavigateToClassManagement = { navController.navigate("class_management") },
+            onNavigateToUserManagement = { navController.navigate("user_management") },
+            onNavigateToStatistics = { navController.navigate("admin_statistics_dashboard") }
         )
     } else {
         UserDashboard(
             currentUser = currentUser,
             userWithLops = userWithLops,
-            onLogout = onLogout,
-            onNavigateToAttendance = onNavigateToAttendance
+            onLogout = {
+                mainViewModel.logout()
+                navController.navigate("login") { popUpTo(0) { inclusive = true } }
+            },
+            onNavigateToAttendance = { lopId ->
+                navController.navigate("attendance/$lopId")
+            },
+            mainViewModel = mainViewModel
         )
     }
 }
@@ -185,9 +219,9 @@ fun MainScreen(
 fun AdminDashboard(
     onLogout: () -> Unit,
     onNavigateToClassManagement: () -> Unit,
-    onNavigateToUserManagement: () -> Unit
+    onNavigateToUserManagement: () -> Unit,
+    onNavigateToStatistics: () -> Unit
 ) {
-    // Placeholder for the Admin Dashboard
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
@@ -202,6 +236,10 @@ fun AdminDashboard(
         Button(onClick = onNavigateToUserManagement) {
             Text("Quản lý người dùng")
         }
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(onClick = onNavigateToStatistics) {
+            Text("Thống kê điểm danh")
+        }
         Spacer(modifier = Modifier.height(32.dp))
         Button(onClick = onLogout) {
             Text("Đăng xuất")
@@ -215,24 +253,19 @@ fun UserDashboard(
     currentUser: com.example.nhandienkhuanmat.data.model.User?,
     userWithLops: com.example.nhandienkhuanmat.data.model.UserWithLops?,
     onLogout: () -> Unit,
-    onNavigateToAttendance: (Long) -> Unit
+    onNavigateToAttendance: (Long) -> Unit,
+    mainViewModel: MainViewModel
 ) {
-    var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Điểm danh", "Thống kê", "Cài đặt")
+    var selectedItem by remember { mutableStateOf(0) }
+    val items = listOf("Điểm danh", "Thống kê", "Cài đặt")
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Điểm danh khuôn mặt") },
+                title = { Text(text = "Điểm danh khuôn mặt") },
                 actions = {
-                    currentUser?.let { user ->
-                        Text(
-                            text = user.name,
-                            modifier = Modifier.padding(end = 16.dp)
-                        )
-                    }
+                    Text(text = currentUser?.name ?: "User", modifier = Modifier.padding(end = 8.dp))
                     IconButton(onClick = onLogout) {
-                        // Logout icon
                         Text("Đăng xuất")
                     }
                 }
@@ -240,70 +273,79 @@ fun UserDashboard(
         },
         bottomBar = {
             NavigationBar {
-                tabs.forEachIndexed { index, title ->
+                items.forEachIndexed { index, item ->
                     NavigationBarItem(
-                        icon = { /* Icon would go here */ },
-                        label = { Text(title) },
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index }
+                        icon = { /* TODO: Add icons */ },
+                        label = { Text(item) },
+                        selected = selectedItem == index,
+                        onClick = { selectedItem = index }
                     )
+                }
+            }
+        },
+        floatingActionButton = {
+            if (selectedItem == 0) { // Show FAB only on the attendance tab
+                FloatingActionButton(onClick = {
+                    userWithLops?.lops?.firstOrNull()?.let {
+                        onNavigateToAttendance(it.id)
+                    }
+                }) {
+                    Text("+")
                 }
             }
         }
     ) { innerPadding ->
-        when (selectedTab) {
-            0 -> {
-                if (userWithLops != null && userWithLops.lops.isNotEmpty()) {
-                    ClassSelectionScreen(
-                        modifier = Modifier.padding(innerPadding),
-                        classes = userWithLops.lops,
-                        onClassSelected = { lopId ->
-                            onNavigateToAttendance(lopId)
-                        }
-                    )
-                } else {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(innerPadding),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("Bạn chưa được gán vào lớp học nào.")
-                    }
-                }
-            }
-            1 -> {
-                // Statistics screen (placeholder)
-                Column(
+        when (selectedItem) {
+            0 -> ClassListForUser(
+                userWithLops = userWithLops,
+                modifier = Modifier.padding(innerPadding),
+                onClassSelected = onNavigateToAttendance
+            )
+            1 -> UserStatisticsScreen(mainViewModel = mainViewModel)
+            2 -> SettingsScreen(modifier = Modifier.padding(innerPadding))
+        }
+    }
+}
+
+@Composable
+fun ClassListForUser(
+    userWithLops: com.example.nhandienkhuanmat.data.model.UserWithLops?,
+    modifier: Modifier = Modifier,
+    onClassSelected: (Long) -> Unit
+) {
+    if (userWithLops != null && userWithLops.lops.isNotEmpty()) {
+        LazyColumn(modifier = modifier.padding(16.dp)) {
+            items(userWithLops.lops) { lop ->
+                Card(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                        .padding(16.dp)
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    onClick = { onClassSelected(lop.id) }
                 ) {
                     Text(
-                        text = "Thống kê điểm danh",
-                        style = MaterialTheme.typography.headlineMedium
+                        text = lop.name,
+                        modifier = Modifier.padding(16.dp)
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Tính năng đang phát triển...")
-                }
-            }
-            2 -> {
-                // Settings screen (placeholder)
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = "Cài đặt",
-                        style = MaterialTheme.typography.headlineMedium
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Tính năng đang phát triển...")
                 }
             }
         }
+    } else {
+        Box(
+            modifier = modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Bạn chưa được gán vào lớp học nào.")
+        }
+    }
+}
+
+@Composable
+fun SettingsScreen(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text("Màn hình cài đặt")
     }
 }
 

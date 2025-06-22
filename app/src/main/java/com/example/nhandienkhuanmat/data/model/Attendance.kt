@@ -8,18 +8,14 @@ data class Attendance(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val userId: Long,
-    val lopId: Long, // Foreign key for Lop
-    val checkInTime: Long,
-    val checkOutTime: Long? = null,
-    val date: String, // Format: yyyy-MM-dd
-    val status: AttendanceStatus = AttendanceStatus.PRESENT,
-    val location: String? = null,
-    val notes: String? = null
+    val lopId: Long,
+    val checkInTime: Long = System.currentTimeMillis(),
+    var checkOutTime: Long? = null,
+    val status: AttendanceStatus
 )
 
 enum class AttendanceStatus {
     PRESENT,
     ABSENT,
-    LATE,
-    HALF_DAY
-} 
+    LATE
+}
