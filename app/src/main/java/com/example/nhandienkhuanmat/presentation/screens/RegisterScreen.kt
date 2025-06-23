@@ -18,6 +18,7 @@ fun RegisterScreen(
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -57,7 +58,23 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         Button(
-            onClick = { onRegister(name, email, password) },
+            onClick = {
+                // Validate fields
+                if (name.isBlank() || email.isBlank() || password.isBlank()) {
+                    errorMessage = "Vui lòng nhập đầy đủ thông tin."
+                    return@Button
+                }
+                // Simple email format check
+                if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                    errorMessage = "Email không hợp lệ."
+                    return@Button
+                }
+                if (password.length < 6) {
+                    errorMessage = "Mật khẩu phải có ít nhất 6 ký tự."
+                    return@Button
+                }
+                onRegister(name, email, password)
+            },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Đăng ký")
@@ -65,6 +82,20 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(16.dp))
         TextButton(onClick = onNavigateToLogin) {
             Text("Đã có tài khoản? Đăng nhập")
+        }
+
+        // Popup for error message
+        if (errorMessage != null) {
+            AlertDialog(
+                onDismissRequest = { errorMessage = null },
+                title = { Text("Thông báo") },
+                text = { Text(errorMessage ?: "") },
+                confirmButton = {
+                    Button(onClick = { errorMessage = null }) {
+                        Text("Đóng")
+                    }
+                }
+            )
         }
     }
 } 

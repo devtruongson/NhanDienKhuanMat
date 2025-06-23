@@ -20,6 +20,7 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
@@ -66,11 +67,23 @@ fun LoginScreen(
 
         Button(
             onClick = {
+                // Validate fields
+                if (email.isBlank() || password.isBlank()) {
+                    errorMessage = "Vui lòng nhập đầy đủ email và mật khẩu."
+                    return@Button
+                }
+                // Simple email format check
+                if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                    errorMessage = "Email không hợp lệ."
+                    return@Button
+                }
                 isLoading = true
                 scope.launch {
                     val success = viewModel.login(email, password)
                     if (success) {
                         onLoginSuccess()
+                    } else {
+                        errorMessage = "Sai tài khoản hoặc mật khẩu."
                     }
                     isLoading = false
                 }
@@ -115,5 +128,19 @@ fun LoginScreen(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        // Popup for error message
+        if (errorMessage != null) {
+            AlertDialog(
+                onDismissRequest = { errorMessage = null },
+                title = { Text("Thông báo") },
+                text = { Text(errorMessage ?: "") },
+                confirmButton = {
+                    Button(onClick = { errorMessage = null }) {
+                        Text("Đóng")
+                    }
+                }
+            )
+        }
     }
 } 
